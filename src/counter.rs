@@ -1,16 +1,19 @@
-// Import necessary modules from the NEAR SDK
-use near_sdk::{env, near_bindgen};
+use near_sdk::{near_bindgen};
+use borsh::BorshSerialize;
 
-// Define the smart contract structure
+
 #[near_bindgen]
-#[derive(Default, BorshDeserialize, BorshSerialize)]
+#[derive(BorshSerialize)]
 pub struct Counter {
     value: u32,
 }
 
-// Implement methods for the smart contract
-#[near_bindgen]
 impl Counter {
+    // Constructor
+    pub fn new(value: u32) -> Self {
+        Self { value }
+    }
+
     // Method to increment the counter
     pub fn increment(&mut self) {
         self.value += 1;
@@ -25,4 +28,7 @@ impl Counter {
     pub fn get(&self) -> u32 {
         self.value
     }
+
+
 }
+fn main() {}
