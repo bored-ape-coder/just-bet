@@ -1,9 +1,7 @@
-use near_sdk::{near_bindgen};
+// use near_sdk::{near_bindgen};
 use borsh::BorshSerialize;
 
 
-#[near_bindgen]
-#[derive(BorshSerialize)]
 pub struct Counter {
     value: u32,
 }
