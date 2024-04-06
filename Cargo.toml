@@ -15,7 +15,13 @@ path = "src/NumberHelper.rs"  # Adjust the path to your Rust file
 name = "counter"
 path = "src/counter.rs"  # Adjust the path to your Rust file
 
+[[bin]]
+name = "CoinFlip"
+path = "src/CoinFlip.rs"  # Adjust the path to your Rust file
+
 
 [dependencies]
 near-sdk = "3.1.0"
 borsh = "0.9.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
