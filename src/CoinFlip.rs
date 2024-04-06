@@ -1,97 +1,71 @@
-#![allow(unused_imports)] // Suppress warnings about unused imports
+use near_sdk::{borsh::{self, BorshDeserialize, BorshSerialize}, Promise};
+use std::collections::HashMap;
+use near_sdk::{env, near_bindgen};
 
-use near_sdk::{env, near_bindgen, Promise};
-use near_sdk::serde as near_serde; // Use near_serde for compatibility
-
-// Import necessary attributes
-use near_sdk::init;
-
-#[derive(near_serde::Serialize, near_serde::Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-#[derive(PartialEq)] // Add this line
-pub enum CoinFlipResult {
-    Heads,
-    Tails,
-}
-
-#[derive(near_serde::Serialize, near_serde::Deserialize)]
-#[serde(crate = "near_sdk::serde")]
 #[near_bindgen]
+#[derive(BorshDeserialize, BorshSerialize)]
 pub struct CoinFlip {
-    player: String,
-    bet: u128,
-    num_flips: u8,
-    results: Vec<CoinFlipResult>,
-    winnings: u128,
+    results: HashMap<String, u32>, // Stores player address and their win count
+    total_wagered: u128,           // Tracks total NEAR deposited for all flips
 }
 
+impl Default for CoinFlip {
+  fn default() -> Self {
+    Self {
+      results: HashMap::new(),
+      total_wagered: 0,
+    }
+  }
+}
 
 #[near_bindgen]
 impl CoinFlip {
     #[init]
     pub fn new() -> Self {
-        Self {
-            player: env::predecessor_account_id(),
-            bet: 0,
-            num_flips: 0,
-            results: vec![],
-            winnings: 0,
-        }
+        Self::default()
     }
 
     #[payable]
-    pub fn play_multiple(&mut self, guess: CoinFlipResult, num_flips: u8) -> Promise {
-        let attached_deposit = env::attached_deposit();
+    pub fn flip_coin(&mut self, guess: String) -> String {
+        let account_id = env::predecessor_account_id();
+        let deposit = env::attached_deposit();
 
-        if attached_deposit <= 0 {
-            env::panic(b"Attach some NEAR tokens to play.");
+        // Ensure minimum deposit for playing (1 NEAR)
+        assert!(deposit >= 1_000_000_000_000_000_000_000, "Attach at least 1 NEAR to play");
+
+        let random_byte = env::random_seed()[0];
+        let outcome = if random_byte % 2 == 0 { "Heads".to_string() } else { "Tails".to_string() };
+
+        let win_message = format!("You guessed {}. The coin landed on {}", guess, outcome);
+        let lose_message = format!("You guessed {}. The coin landed on {}", guess, outcome);
+
+        if guess == outcome {
+            // Calculate payout (double deposit)
+            let payout = deposit * 2;
+        
+            // Update total wagered
+            self.total_wagered += deposit as u128;
+            Promise::new(account_id).transfer(payout);
+            // Transfer payout to player using env::transfer_short
+            // env::transfer_short(payout as u128).unwrap(); // Handle potential errors
+        
+            win_message
+        } else {
+            // Update total wagered
+            self.total_wagered += deposit as u128;
+        
+            lose_message
         }
-
-        let min_bet = 100;
-        if attached_deposit < min_bet * num_flips as u128 {
-            env::panic(b"Minimum bet is 100 NEAR per flip.");
-        }
-
-        if num_flips == 0 || num_flips > 10 {
-            env::panic(b"Number of flips must be between 1 and 10.");
-        }
-
-        self.bet = attached_deposit;
-        self.player = env::predecessor_account_id();
-        self.num_flips = num_flips;
-
-        let random_seed = env::random_seed();
-
-        let mut results = Vec::with_capacity(num_flips as usize);
-        for _ in 0..num_flips {
-            let first_byte = random_seed.get(0).expect("Failed to get first byte");
-            // let first_byte = random_seed.as_ref()[0] as u8; // Extract first byte as u8
-            let dom_value = first_byte % 2;
-            results.push(if dom_value == 0 { CoinFlipResult::Heads } else { CoinFlipResult::Tails });
-        }
-
-        let mut winnings = 0;
-        for result in &results {
-            if *result == CoinFlipResult::Heads {
-                winnings += self.bet / num_flips as u128;
-            } else if *result == CoinFlipResult::Tails {
-                winnings += self.bet / num_flips as u128;
-            }
-        }
-
-        self.results = results;
-        self.winnings = winnings;
-
-        Promise::new(env::current_account_id()).transfer(winnings)
     }
 
-    pub fn get_results(&self) -> Option<&Vec<CoinFlipResult>> {
-        Some(&self.results)
+    pub fn get_wins(&self, account_id: String) -> u32 {
+        let wins = *self.results.get(&account_id).unwrap_or(&0);
+        wins
     }
 
-    pub fn get_winnings(&self) -> u128 {
-        self.winnings
+    // Consider adding a view function to get total wagered for transparency
+    pub fn get_total_wagered(&self) -> u128 {
+        self.total_wagered
     }
 }
-
-fn main() {} // Optional for testing purposes
+fn main() {}
